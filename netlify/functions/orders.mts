@@ -7,6 +7,17 @@ const json = (data: unknown, init: ResponseInit = {}) =>
     headers: { 'content-type': 'application/json; charset=utf-8', ...(init.headers || {}) },
   });
 
+function databaseErrorDetails(error: any) {
+  const cause = error?.cause || error?.originalError || null;
+  return {
+    error: error?.message || 'Server error while accessing the order database.',
+    code: error?.code || cause?.code || null,
+    detail: error?.detail || cause?.detail || null,
+    hint: error?.hint || cause?.hint || null,
+    cause: cause?.message || null,
+  };
+}
+
 export default async (req: Request, _context: Context) => {
   try {
     const db = getDatabase();
@@ -46,20 +57,20 @@ export default async (req: Request, _context: Context) => {
         `;
         return json(order, { status: 201 });
       } catch (error: any) {
-        if (error?.code === '23505') {
+        const cause = error?.cause || error?.originalError;
+        const code = error?.code || cause?.code;
+        if (code === '23505') {
           return json({ error: 'That PO number already exists.' }, { status: 409 });
         }
-        throw error;
+        console.error('order insert failed', error);
+        return json(databaseErrorDetails(error), { status: 500 });
       }
     }
 
     return json({ error: 'Method not allowed' }, { status: 405 });
   } catch (error: any) {
     console.error('orders function failed', error);
-    return json({
-      error: error?.message || 'Server error while accessing the order database.',
-      code: error?.code || null,
-    }, { status: 500 });
+    return json(databaseErrorDetails(error), { status: 500 });
   }
 };
 
