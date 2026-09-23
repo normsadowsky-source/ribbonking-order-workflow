@@ -179,7 +179,7 @@ document.querySelector('#newOrderForm').addEventListener('submit', async e => {
   const fd = new FormData(e.currentTarget);
   const res = await fetch('/api/orders', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ poNumber:fd.get('poNumber'), companyName:fd.get('companyName'), actor:'Egnali' }) });
   const data = await res.json();
-  if (!res.ok) { document.querySelector('#newOrderError').textContent = data.error || 'Could not create order.'; return; }
+  if (!res.ok) { const parts = [data.error, data.cause, data.detail, data.hint].filter(Boolean); document.querySelector('#newOrderError').textContent = parts.join(' — ') || 'Could not create order.'; return; }
   e.currentTarget.reset();
   document.querySelector('#newOrderDialog').close();
   await loadOrders();
