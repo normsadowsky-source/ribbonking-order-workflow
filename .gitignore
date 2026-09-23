@@ -1,0 +1,4 @@
+node_modules
+.netlify
+dist
+.DS_Store
