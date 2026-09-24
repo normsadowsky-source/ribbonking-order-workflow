@@ -143,6 +143,27 @@ async function openOrder(id) {
   `;
   detail.querySelector('#closeOrder').addEventListener('click', () => document.querySelector('#orderDialog').close());
   detail.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => runAction(btn.dataset.action)));
+  detail.querySelector('#uploadAttachmentBtn').addEventListener('click', async () => {
+    const input = detail.querySelector('#orderAttachmentInput');
+    const files = Array.from(input.files || []);
+    const status = detail.querySelector('#attachmentStatus');
+    if (!files.length) {
+      status.textContent = 'Choose at least one file.';
+      return;
+    }
+    status.textContent = 'Uploading...';
+    try {
+      for (const file of files) {
+        await uploadAttachment(selectedOrder.id, file, selectedOrder.owner || 'Egnali');
+      }
+      const orderId = selectedOrder.id;
+      document.querySelector('#orderDialog').close();
+      await loadOrders();
+      await openOrder(orderId);
+    } catch (error) {
+      status.textContent = error.message || 'Could not upload the file.';
+    }
+  });
   document.querySelector('#orderDialog').showModal();
 }
 
