@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@netlify/blobs": "latest",
     "@netlify/database": "latest"
   },
   "devDependencies": {
