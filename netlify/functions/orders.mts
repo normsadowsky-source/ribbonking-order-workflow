@@ -83,12 +83,13 @@ export default async (req: Request, _context: Context) => {
                   waiting_since, follow_up_owner, follow_up_stage, ship_date_sent_at,
                   plate_status, created_at, updated_at
            FROM orders
-           WHERE po_number = $1
+           WHERE BTRIM(po_number) = BTRIM($1)
+             AND LOWER(BTRIM(company_name)) = LOWER(BTRIM($2))
            LIMIT 1`,
-          [poNumber]
+          [poNumber, companyName]
         );
         return json({
-          error: 'That PO number already exists.',
+          error: 'That PO number already exists for this company.',
           existingOrder: existing.rows[0] || null
         }, { status: 409 });
       }
