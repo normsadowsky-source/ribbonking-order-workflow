@@ -126,6 +126,15 @@ async function openOrder(id) {
     <div class="responsibility ${tone(selectedOrder)}"><span>Current Responsibility</span><strong>${escapeHtml(selectedOrder.owner)}</strong><em>${escapeHtml(selectedOrder.next_action)}</em></div>
     <div class="meta"><div><span>Status</span><strong>${statusLabel[selectedOrder.status] || selectedOrder.status}</strong></div><div><span>Follow-Up</span><strong>${selectedOrder.follow_up_owner ? `${escapeHtml(selectedOrder.follow_up_owner)}${selectedOrder.follow_up_due ? ` · ${selectedOrder.follow_up_due}` : ' · Pending'}` : 'None'}</strong></div></div>
     ${selectedOrder.status === 'CUSTOMER_APPROVED' ? `<div class="post-approval"><div><span>Ship Date</span><strong>${selectedOrder.ship_date_sent_at ? 'Sent' : 'Pending'}</strong></div><div><span>Plate</span><strong>${formatPlate(selectedOrder.plate_status)}</strong></div></div>` : ''}
+    <section class="attachments">
+      <div class="section-head"><div><h3>Artwork & PO Files</h3><p>Files attached to this order.</p></div></div>
+      <div class="attachment-list">${renderAttachments(attachments)}</div>
+      <div class="attachment-upload">
+        <input id="orderAttachmentInput" type="file" multiple />
+        <button type="button" class="secondary" id="uploadAttachmentBtn">Attach Files</button>
+      </div>
+      <p class="file-help" id="attachmentStatus"></p>
+    </section>
     <h3>Move Order</h3>
     <div class="workflow-actions">${actionButtons(selectedOrder.status)}</div>
     <label class="notes">Notes for this action<textarea id="actionNotes" rows="3" placeholder="Optional"></textarea></label>
