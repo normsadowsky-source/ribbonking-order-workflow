@@ -241,9 +241,21 @@ document.querySelector('#ownerFilter').addEventListener('change', render);
 document.querySelector('#newOrderForm').addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.currentTarget);
+  const files = Array.from(document.querySelector('#newOrderFiles').files || []);
+  const errorEl = document.querySelector('#newOrderError');
+  errorEl.textContent = '';
   const res = await fetch('/api/orders', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ poNumber:fd.get('poNumber'), companyName:fd.get('companyName'), actor:'Egnali' }) });
   const data = await res.json();
-  if (!res.ok) { const parts = [data.error, data.cause, data.detail, data.hint].filter(Boolean); document.querySelector('#newOrderError').textContent = parts.join(' — ') || 'Could not create order.'; return; }
+  if (!res.ok) { const parts = [data.error, data.cause, data.detail, data.hint].filter(Boolean); errorEl.textContent = parts.join(' — ') || 'Could not create order.'; return; }
+  try {
+    for (const file of files) {
+      await uploadAttachment(data.id, file, 'Egnali');
+    }
+  } catch (error) {
+    errorEl.textContent = `Order created, but a file could not be attached: ${error.message}`;
+    await loadOrders();
+    return;
+  }
   e.currentTarget.reset();
   document.querySelector('#newOrderDialog').close();
   await loadOrders();
