@@ -114,8 +114,12 @@ function render() {
 
 async function openOrder(id) {
   selectedOrder = orders.find(o => Number(o.id) === id);
-  const historyRes = await fetch(`/api/order-history?id=${id}`);
+  const [historyRes, attachmentsRes] = await Promise.all([
+    fetch(`/api/order-history?id=${id}`),
+    fetch(`/api/order-attachments?orderId=${id}`)
+  ]);
   const history = await historyRes.json();
+  const attachments = attachmentsRes.ok ? await attachmentsRes.json() : [];
   const detail = document.querySelector('#orderDetail');
   detail.innerHTML = `
     <div class="dialog-head"><div><div class="eyebrow">PO ${escapeHtml(selectedOrder.po_number)}</div><h2>${escapeHtml(selectedOrder.company_name)}</h2></div><button class="icon" id="closeOrder">×</button></div>
