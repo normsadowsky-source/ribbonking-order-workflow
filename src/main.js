@@ -64,8 +64,8 @@ app.innerHTML = `
       <div class="dialog-head"><h2>New Order</h2><button type="button" class="icon" id="closeNew">×</button></div>
       <label>PO Number<input name="poNumber" required autocomplete="off" /></label>
       <label>Company Name<input name="companyName" required autocomplete="organization" /></label>
-      <label>Artwork / PO Files <span class="optional">(optional)</span><input id="newOrderFiles" name="files" type="file" multiple /></label>
-      <p class="file-help">Attach artwork, PO PDFs, proofs, or other order files.</p>
+      <label>Artwork / PO Files <span class="optional">(optional)</span><input id="newOrderFiles" name="files" type="file" multiple accept=".pdf,.eps,.ai,.rio,application/pdf,application/postscript" /></label>
+      <p class="file-help">Accepted formats: PDF, EPS, AI, RIO.</p>
       <p class="error" id="newOrderError"></p>
       <div class="actions"><button type="button" class="secondary" id="cancelNew">Cancel</button><button class="primary" type="submit">Create Order</button></div>
     </form>
@@ -130,7 +130,7 @@ async function openOrder(id) {
       <div class="section-head"><div><h3>Artwork & PO Files</h3><p>Files attached to this order.</p></div></div>
       <div class="attachment-list">${renderAttachments(attachments)}</div>
       <div class="attachment-upload">
-        <input id="orderAttachmentInput" type="file" multiple />
+        <input id="orderAttachmentInput" type="file" multiple accept=".pdf,.eps,.ai,.rio,application/pdf,application/postscript" />
         <button type="button" class="secondary" id="uploadAttachmentBtn">Attach Files</button>
       </div>
       <p class="file-help" id="attachmentStatus"></p>
