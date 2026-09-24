@@ -202,6 +202,34 @@ async function runAction(action) {
   await loadOrders();
 }
 
+async function uploadAttachment(orderId, file, actor='Egnali') {
+  const form = new FormData();
+  form.append('orderId', String(orderId));
+  form.append('actor', actor);
+  form.append('file', file, file.name);
+  const res = await fetch('/api/order-attachments', { method:'POST', body:form });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Could not upload ${file.name}.`);
+  return data;
+}
+
+function renderAttachments(items=[]) {
+  if (!items.length) return '<p class="muted">No files attached yet.</p>';
+  return items.map(a => `
+    <a class="attachment-row" href="/api/order-attachment-file?id=${a.id}">
+      <span><strong>${escapeHtml(a.file_name)}</strong><small>${escapeHtml(a.uploaded_by)} · ${new Date(a.created_at).toLocaleString()}</small></span>
+      <em>${formatBytes(a.file_size)}</em>
+    </a>
+  `).join('');
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
 function escapeHtml(value='') { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c])); }
 function formatEvent(v='') { return v.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
 function formatPlate(v='UNDECIDED') { return ({UNDECIDED:'Undecided',NOT_REQUIRED:'Not Required',REQUIRED:'Required',ORDERED:'Ordered'})[v] || v; }
