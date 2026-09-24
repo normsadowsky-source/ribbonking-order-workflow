@@ -64,6 +64,8 @@ app.innerHTML = `
       <div class="dialog-head"><h2>New Order</h2><button type="button" class="icon" id="closeNew">×</button></div>
       <label>PO Number<input name="poNumber" required autocomplete="off" /></label>
       <label>Company Name<input name="companyName" required autocomplete="organization" /></label>
+      <label>Artwork / PO Files <span class="optional">(optional)</span><input id="newOrderFiles" name="files" type="file" multiple /></label>
+      <p class="file-help">Attach artwork, PO PDFs, proofs, or other order files.</p>
       <p class="error" id="newOrderError"></p>
       <div class="actions"><button type="button" class="secondary" id="cancelNew">Cancel</button><button class="primary" type="submit">Create Order</button></div>
     </form>
