@@ -19,6 +19,13 @@ function safeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 180) || 'attachment';
 }
 
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'eps', 'ai', 'rio']);
+
+function fileExtension(name: string) {
+  const dot = name.lastIndexOf('.');
+  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : '';
+}
+
 export default async (req: Request, _context: Context) => {
   const db = getDatabase();
 
@@ -56,6 +63,10 @@ export default async (req: Request, _context: Context) => {
       }
       if (!(file instanceof File) || !file.name) {
         return json({ error: 'Choose a file to upload.' }, { status: 400 });
+      }
+      const extension = fileExtension(file.name);
+      if (!ALLOWED_EXTENSIONS.has(extension)) {
+        return json({ error: 'Unsupported file type. Accepted formats: PDF, EPS, AI, RIO.' }, { status: 400 });
       }
 
       const orderCheck = await db.pool.query('SELECT id FROM orders WHERE id = $1', [orderId]);
