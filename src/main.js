@@ -246,7 +246,29 @@ document.querySelector('#newOrderForm').addEventListener('submit', async e => {
   errorEl.textContent = '';
   const res = await fetch('/api/orders', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ poNumber:fd.get('poNumber'), companyName:fd.get('companyName'), actor:'Egnali' }) });
   const data = await res.json();
-  if (!res.ok) { const parts = [data.error, data.cause, data.detail, data.hint].filter(Boolean); errorEl.textContent = parts.join(' — ') || 'Could not create order.'; return; }
+
+  if (res.status === 409 && data.existingOrder) {
+    try {
+      for (const file of files) {
+        await uploadAttachment(data.existingOrder.id, file, 'Egnali');
+      }
+      e.currentTarget.reset();
+      document.querySelector('#newOrderDialog').close();
+      await loadOrders();
+      await openOrder(Number(data.existingOrder.id));
+      return;
+    } catch (error) {
+      errorEl.textContent = `PO ${data.existingOrder.po_number} already exists. The file could not be attached: ${error.message}`;
+      return;
+    }
+  }
+
+  if (!res.ok) {
+    const parts = [data.error, data.cause, data.detail, data.hint].filter(Boolean);
+    errorEl.textContent = parts.join(' — ') || 'Could not create order.';
+    return;
+  }
+
   try {
     for (const file of files) {
       await uploadAttachment(data.id, file, 'Egnali');
@@ -256,6 +278,7 @@ document.querySelector('#newOrderForm').addEventListener('submit', async e => {
     await loadOrders();
     return;
   }
+
   e.currentTarget.reset();
   document.querySelector('#newOrderDialog').close();
   await loadOrders();
