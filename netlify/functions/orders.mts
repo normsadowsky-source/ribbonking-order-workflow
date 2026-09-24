@@ -78,7 +78,19 @@ export default async (req: Request, _context: Context) => {
       await client.query('ROLLBACK').catch(() => {});
       console.error('order insert transaction failed', error);
       if (error?.code === '23505') {
-        return json({ error: 'That PO number already exists.' }, { status: 409 });
+        const existing = await db.pool.query(
+          `SELECT id, po_number, company_name, status, owner, next_action, follow_up_due,
+                  waiting_since, follow_up_owner, follow_up_stage, ship_date_sent_at,
+                  plate_status, created_at, updated_at
+           FROM orders
+           WHERE po_number = $1
+           LIMIT 1`,
+          [poNumber]
+        );
+        return json({
+          error: 'That PO number already exists.',
+          existingOrder: existing.rows[0] || null
+        }, { status: 409 });
       }
       return json(errorPayload(error), { status: 500 });
     } finally {
