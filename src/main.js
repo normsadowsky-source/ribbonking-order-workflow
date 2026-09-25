@@ -260,7 +260,7 @@ async function openOrder(id) {
         <div class="eyebrow">PO ${escapeHtml(selectedOrder.po_number)}</div>
         <h2>${escapeHtml(selectedOrder.company_name)}</h2>
         <p>Complete order workspace</p>
-        <button type="button" class="secondary edit-order-btn" id="editOrderBtn">Edit Company / PO</button>
+${currentFilter === 'Logas' ? '' : '<button type="button" class="secondary edit-order-btn" id="editOrderBtn">Edit Company / PO</button>'}
       </div>
       <button class="icon" id="closeOrder">×</button>
     </div>
@@ -316,7 +316,8 @@ async function openOrder(id) {
   `;
 
   detail.querySelector('#closeOrder').addEventListener('click', () => document.querySelector('#orderDialog').close());
-  detail.querySelector('#editOrderBtn').addEventListener('click', () => showEditOrderForm(detail));
+  const editOrderBtn = detail.querySelector('#editOrderBtn');
+  if (editOrderBtn) editOrderBtn.addEventListener('click', () => showEditOrderForm(detail));
   detail.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => {
     if (btn.dataset.action === 'PREPARE_VECTOR_SEND') {
       showVectorSendPanel(detail);
@@ -489,6 +490,44 @@ function showVectorSendPanel(detail) {
 
 function actionButtons(order) {
   const status = order.status;
+
+  if (currentFilter === 'Logas') {
+    const logasMap = {
+      READY_FOR_VECTOR: [
+        ['PREPARE_VECTOR_SEND','Send to Vector'],
+        ['WAITING_CUSTOMER_INFO','Waiting for Customer Information']
+      ],
+      WAITING_CUSTOMER_INFO: [
+        ['FOLLOW_UP_SENT','Follow-Up Customer'],
+        ['PREPARE_VECTOR_SEND','Information Received → Send to Vector']
+      ],
+      WAITING_VECTOR: [
+        ['FOLLOW_UP_SENT','Follow-Up Vector'],
+        ['VECTOR_RECEIVED','Vector Work Received']
+      ],
+      VECTOR_REVIEW_REQUIRED: [
+        ['PROOF_SENT','Send Proof to Customer'],
+        ['REVISION_SENT_VECTOR','Send Correction to Vector']
+      ],
+      WAITING_CUSTOMER_RESPONSE: [
+        ['CUSTOMER_CHANGES','Customer Requested Changes'],
+        ['TRANSFER_APPROVAL_TO_EGNALI','No Response After 3 Hours → Egnali']
+      ],
+      CUSTOMER_CHANGES_REQUESTED: [
+        ['REVISION_SENT_VECTOR','Send Revision to Vector']
+      ],
+      WAITING_VECTOR_REVISION: [
+        ['FOLLOW_UP_SENT','Follow-Up Vector'],
+        ['VECTOR_RECEIVED','Revision Received']
+      ],
+      COMPLETE: []
+    };
+
+    return (logasMap[status] || [])
+      .map(([action,label]) => `<button class="secondary" data-action="${action}">${label}</button>`)
+      .join('') || '<span class="muted">No action required from Logas.</span>';
+  }
+
   const map = {
     PO_REVIEW_REQUIRED: [['ASSIGN_TO_LOGAS','PO Complete → Send to Logas'],['WAITING_CUSTOMER_INFO','Missing Info → Send to Logas with Notes']],
     READY_FOR_VECTOR: [['PREPARE_VECTOR_SEND','Send to Vector'],['WAITING_CUSTOMER_INFO','Waiting for Customer Information']],
