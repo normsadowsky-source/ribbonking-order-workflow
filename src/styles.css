@@ -62,3 +62,7 @@ button.summary-card:focus-visible{outline:3px solid #b8d0ff;outline-offset:2px}
 .collapsed-history{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .collapsed-history summary{cursor:pointer;font-weight:750}
 .collapsed-history[open] summary{margin-bottom:14px}
+
+.vector-send-card{margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}
+.compact-dropzone{padding:14px}
+.template-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#fff8e7;border:1px solid #f0d999;font-size:13px;color:#5f4a12}
