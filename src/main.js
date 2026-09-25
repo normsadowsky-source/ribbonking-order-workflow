@@ -86,7 +86,7 @@ app.innerHTML = `
             <p>Orders requiring action or monitoring.</p>
           </div>
           <div class="panel-tools">
-            <label class="search-box"><span>Search</span><input id="orderSearch" type="search" placeholder="PO, company, owner, or status" autocomplete="off" /></label>
+            <label class="search-box"><span>Search</span><input id="orderSearch" type="search" placeholder="Search by PO number" autocomplete="off" /></label>
             <div class="legend">
               <span><i class="dot blue"></i>Action</span>
               <span><i class="dot yellow"></i>Waiting</span>
@@ -242,7 +242,7 @@ async function openOrder(id) {
 
     <section class="workflow-card">
       <div class="section-head"><div><h3>Next Workflow Action</h3><p>Use the button that matches what happened next.</p></div></div>
-      <div class="workflow-actions">${actionButtons(selectedOrder.status)}</div>
+      <div class="workflow-actions">${actionButtons(selectedOrder)}</div>
       <label class="notes">Notes for this action<textarea id="actionNotes" rows="3" placeholder="Optional notes"></textarea></label>
     </section>
 
@@ -275,20 +275,44 @@ async function openOrder(id) {
   document.querySelector('#orderDialog').showModal();
 }
 
-function actionButtons(status) {
+function actionButtons(order) {
+  const status = order.status;
   const map = {
     PO_REVIEW_REQUIRED: [['ASSIGN_TO_LOGAS','PO Complete → Send to Logas'],['WAITING_CUSTOMER_INFO','Missing Info → Send to Logas with Notes']],
     READY_FOR_VECTOR: [['SENT_TO_VECTOR','Send to Vector'],['WAITING_CUSTOMER_INFO','Waiting for Customer Information']],
     WAITING_CUSTOMER_INFO: [['FOLLOW_UP_SENT','Follow-Up Sent'],['SENT_TO_VECTOR','Information Received → Send to Vector']],
     WAITING_VECTOR: [['FOLLOW_UP_SENT','Follow-Up Vector'],['VECTOR_RECEIVED','Vector Artwork Received']],
     VECTOR_REVIEW_REQUIRED: [['PROOF_SENT','Proof Sent to Customer'],['REVISION_SENT_VECTOR','Send Correction to Vector']],
-    WAITING_CUSTOMER_RESPONSE: [['CUSTOMER_CHANGES','Customer Requested Changes'],['CUSTOMER_APPROVED','Customer Approved'],['TRANSFER_APPROVAL_TO_EGNALI','No Response After 3 Hours → Egnali']],
-    WAITING_CUSTOMER_APPROVAL: [['FOLLOW_UP_SENT','Egnali: Approval Follow-Up Sent'],['CUSTOMER_CHANGES','Customer Requested Changes'],['CUSTOMER_APPROVED','Customer Approved']],
+    WAITING_CUSTOMER_RESPONSE: [
+      ['CUSTOMER_CHANGES','Customer Requested Changes'],
+      ['APPROVED_NO_PLATE_READY','Approved + Ship Date + No Plate → Ready for Production'],
+      ['APPROVED_PLATE_REQUIRED','Approved + Ship Date + Plate Required'],
+      ['TRANSFER_APPROVAL_TO_EGNALI','No Response After 3 Hours → Egnali']
+    ],
+    WAITING_CUSTOMER_APPROVAL: [
+      ['FOLLOW_UP_SENT','Egnali: Approval Follow-Up Sent'],
+      ['CUSTOMER_CHANGES','Customer Requested Changes'],
+      ['APPROVED_NO_PLATE_READY','Approved + Ship Date + No Plate → Ready for Production'],
+      ['APPROVED_PLATE_REQUIRED','Approved + Ship Date + Plate Required']
+    ],
     CUSTOMER_CHANGES_REQUESTED: [['REVISION_SENT_VECTOR','Send Revision to Vector']],
     WAITING_VECTOR_REVISION: [['FOLLOW_UP_SENT','Follow-Up Vector'],['VECTOR_RECEIVED','Revision Received']],
-    CUSTOMER_APPROVED: [['SHIP_DATE_SENT','Ship Date Sent to Customer'],['PLATE_NOT_REQUIRED','No Plate Required'],['PLATE_REQUIRED','Plate Required'],['PLATE_ORDERED','Plate Ordered'],['COMPLETE','Ready for Production']],
     COMPLETE: [],
   };
+
+  if (status === 'CUSTOMER_APPROVED') {
+    if (order.plate_status === 'REQUIRED') {
+      return '<button class="secondary" data-action="PLATE_READY_COMPLETE">Plate Ready / Sent → Ready for Production</button>';
+    }
+    const fallback = [
+      ['SHIP_DATE_SENT','Ship Date Sent to Customer'],
+      ['PLATE_NOT_REQUIRED','No Plate Required'],
+      ['PLATE_REQUIRED','Plate Required'],
+      ['COMPLETE','Ready for Production']
+    ];
+    return fallback.map(([action,label]) => `<button class="secondary" data-action="${action}">${label}</button>`).join('');
+  }
+
   return (map[status] || []).map(([action,label]) => `<button class="secondary" data-action="${action}">${label}</button>`).join('') || '<span class="muted">No further actions.</span>';
 }
 
