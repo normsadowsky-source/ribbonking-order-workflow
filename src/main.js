@@ -157,6 +157,7 @@ function filteredOrders() {
   if (currentFilter === 'overdue') return orders.filter(o => o.status !== 'COMPLETE' && isOverdue(o));
   if (currentFilter === 'complete') return orders.filter(o => o.status === 'COMPLETE');
   if (currentFilter === 'all') return orders;
+  if (currentFilter === 'Egnali') return orders.filter(o => o.status !== 'COMPLETE' && (o.owner === 'Egnali' || o.status === 'WAITING_CUSTOMER_RESPONSE'));
   if (currentFilter) return orders.filter(o => o.owner === currentFilter && o.status !== 'COMPLETE');
   return orders.filter(o => o.status !== 'COMPLETE');
 }
@@ -182,7 +183,7 @@ function render() {
       <td><strong>${escapeHtml(o.po_number)}</strong></td>
       <td>${escapeHtml(o.company_name)}</td>
       <td><span class="pill ${tone(o)}">${isOverdue(o) ? 'Overdue · ' : ''}${statusLabel[o.status] || o.status}</span></td>
-      <td><span class="owner-chip">${escapeHtml(o.owner)}</span></td>
+      <td><span class="owner-chip">${escapeHtml(o.owner)}</span>${o.status === 'WAITING_CUSTOMER_RESPONSE' ? '<small class="shared-note">Visible to Egnali</small>' : ''}</td>
       <td>${escapeHtml(o.next_action)}</td>
       <td>${o.follow_up_due ? `${escapeHtml(o.follow_up_owner || o.owner)} · ${o.follow_up_due}` : (o.follow_up_owner ? `${escapeHtml(o.follow_up_owner)} · Pending` : '—')}</td>
       <td>${daysWaiting(o)}</td>
@@ -224,7 +225,9 @@ async function openOrder(id) {
     ${selectedOrder.status === 'WAITING_CUSTOMER_RESPONSE' ? `
       <div class="response-window">
         <strong>3-business-hour customer response window</strong>
-        <p>Logas remains responsible during this window. If the customer requests changes, Logas continues the revision process. If there is no response after the window, transfer approval follow-up to Egnali.</p>
+        <p><b>Proof sent:</b> ${selectedOrder.waiting_since ? new Date(selectedOrder.waiting_since).toLocaleString() : 'Time not available'}</p>
+        <p><b>Visible to:</b> Logas and Egnali. Logas remains the temporary owner, but Egnali may record an approval immediately if she sees the customer's email first.</p>
+        <p>If the customer requests changes, Logas continues the revision process. If there is no response after the window, approval follow-up transfers to Egnali.</p>
       </div>` : ''}
 
     ${selectedOrder.status === 'CUSTOMER_APPROVED' ? `<div class="post-approval"><div><span>Ship Date</span><strong>${selectedOrder.ship_date_sent_at ? 'Sent' : 'Pending'}</strong></div><div><span>Plate</span><strong>${formatPlate(selectedOrder.plate_status)}</strong></div></div>` : ''}
@@ -318,7 +321,9 @@ function actionButtons(order) {
 
 async function runAction(action) {
   const notes = document.querySelector('#actionNotes')?.value || '';
-  const actor = action === 'FOLLOW_UP_SENT' && selectedOrder.follow_up_owner ? selectedOrder.follow_up_owner : selectedOrder.owner;
+  const actor = action === 'FOLLOW_UP_SENT' && selectedOrder.follow_up_owner
+    ? selectedOrder.follow_up_owner
+    : (selectedOrder.status === 'WAITING_CUSTOMER_RESPONSE' && currentFilter === 'Egnali' ? 'Egnali' : selectedOrder.owner);
   const res = await fetch('/api/order-action', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ orderId:selectedOrder.id, action, actor, notes }) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
