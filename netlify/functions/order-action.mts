@@ -50,6 +50,107 @@ export default async (req: Request, _context: Context) => {
   const [current] = await db.sql`SELECT * FROM orders WHERE id = ${orderId}`;
   if (!current) return json({ error: 'Order not found.' }, { status: 404 });
 
+  if (action === 'APPROVED_NO_PLATE_READY') {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updatedResult = await client.query(
+        `UPDATE orders
+           SET status='COMPLETE', owner='Egnali', next_action='Complete',
+               ship_date_sent_at=NOW(), plate_status='NOT_REQUIRED',
+               follow_up_due=NULL, follow_up_owner=NULL, follow_up_stage=NULL,
+               waiting_since=NULL, updated_at=NOW()
+         WHERE id=$1
+         RETURNING *`,
+        [orderId]
+      );
+      const updated = updatedResult.rows[0];
+      await client.query(
+        `INSERT INTO order_events (order_id,event_type,actor,notes)
+         VALUES
+           ($1,'CUSTOMER_APPROVED',$2,$3),
+           ($1,'SHIP_DATE_SENT',$2,NULL),
+           ($1,'PLATE_NOT_REQUIRED',$2,NULL),
+           ($1,'COMPLETE',$2,NULL)`,
+        [orderId, actor, notes]
+      );
+      await client.query('COMMIT');
+      return json(updated);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  if (action === 'APPROVED_PLATE_REQUIRED') {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updatedResult = await client.query(
+        `UPDATE orders
+           SET status='CUSTOMER_APPROVED', owner='Egnali', next_action='Make plate',
+               ship_date_sent_at=NOW(), plate_status='REQUIRED',
+               follow_up_due=NULL, follow_up_owner=NULL, follow_up_stage=NULL,
+               waiting_since=NULL, updated_at=NOW()
+         WHERE id=$1
+         RETURNING *`,
+        [orderId]
+      );
+      const updated = updatedResult.rows[0];
+      await client.query(
+        `INSERT INTO order_events (order_id,event_type,actor,notes)
+         VALUES
+           ($1,'CUSTOMER_APPROVED',$2,$3),
+           ($1,'SHIP_DATE_SENT',$2,NULL),
+           ($1,'PLATE_REQUIRED',$2,NULL)`,
+        [orderId, actor, notes]
+      );
+      await client.query('COMMIT');
+      return json(updated);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  if (action === 'PLATE_READY_COMPLETE') {
+    if (current.status !== 'CUSTOMER_APPROVED' || current.plate_status !== 'REQUIRED') {
+      return json({ error: 'This action is only available when a required plate is pending.' }, { status: 409 });
+    }
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updatedResult = await client.query(
+        `UPDATE orders
+           SET status='COMPLETE', owner='Egnali', next_action='Complete',
+               plate_status='ORDERED', follow_up_due=NULL, follow_up_owner=NULL,
+               follow_up_stage=NULL, waiting_since=NULL, updated_at=NOW()
+         WHERE id=$1
+         RETURNING *`,
+        [orderId]
+      );
+      const updated = updatedResult.rows[0];
+      await client.query(
+        `INSERT INTO order_events (order_id,event_type,actor,notes)
+         VALUES
+           ($1,'PLATE_ORDERED',$2,$3),
+           ($1,'COMPLETE',$2,NULL)`,
+        [orderId, actor, notes]
+      );
+      await client.query('COMMIT');
+      return json(updated);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   if (action === 'FOLLOW_UP_SENT') {
     let due: string | null = null;
     let followUpOwner = current.follow_up_owner || current.owner;
