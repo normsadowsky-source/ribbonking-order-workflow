@@ -207,7 +207,12 @@ async function openOrder(id) {
 
   detail.innerHTML = `
     <div class="dialog-head">
-      <div><div class="eyebrow">PO ${escapeHtml(selectedOrder.po_number)}</div><h2>${escapeHtml(selectedOrder.company_name)}</h2><p>Complete order workspace</p></div>
+      <div>
+        <div class="eyebrow">PO ${escapeHtml(selectedOrder.po_number)}</div>
+        <h2>${escapeHtml(selectedOrder.company_name)}</h2>
+        <p>Complete order workspace</p>
+        <button type="button" class="secondary edit-order-btn" id="editOrderBtn">Edit Company / PO</button>
+      </div>
       <button class="icon" id="closeOrder">×</button>
     </div>
 
@@ -256,6 +261,7 @@ async function openOrder(id) {
   `;
 
   detail.querySelector('#closeOrder').addEventListener('click', () => document.querySelector('#orderDialog').close());
+  detail.querySelector('#editOrderBtn').addEventListener('click', () => showEditOrderForm(detail));
   detail.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => runAction(btn.dataset.action)));
   detail.querySelector('#uploadAttachmentBtn').addEventListener('click', async () => {
     const input = detail.querySelector('#orderAttachmentInput');
@@ -276,6 +282,67 @@ async function openOrder(id) {
     }
   });
   document.querySelector('#orderDialog').showModal();
+}
+
+function showEditOrderForm(detail) {
+  const existing = detail.querySelector('#editOrderForm');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const form = document.createElement('div');
+  form.id = 'editOrderForm';
+  form.className = 'edit-order-card';
+  form.innerHTML = `
+    <div class="section-head"><div><h3>Edit Order Details</h3><p>Correct the company or PO number. The change will be saved in Activity History.</p></div></div>
+    <div class="form-grid">
+      <label>Company Name<input id="editCompanyName" value="${escapeHtml(selectedOrder.company_name)}" /></label>
+      <label>PO Number<input id="editPoNumber" value="${escapeHtml(selectedOrder.po_number)}" /></label>
+    </div>
+    <p class="error" id="editOrderError"></p>
+    <div class="actions">
+      <button type="button" class="secondary" id="cancelEditOrder">Cancel</button>
+      <button type="button" class="primary" id="saveEditOrder">Save Changes</button>
+    </div>
+  `;
+  detail.querySelector('.meta').before(form);
+
+  form.querySelector('#cancelEditOrder').addEventListener('click', () => form.remove());
+  form.querySelector('#saveEditOrder').addEventListener('click', async () => {
+    const companyName = form.querySelector('#editCompanyName').value.trim();
+    const poNumber = form.querySelector('#editPoNumber').value.trim();
+    const errorEl = form.querySelector('#editOrderError');
+    const saveBtn = form.querySelector('#saveEditOrder');
+
+    if (!companyName || !poNumber) {
+      errorEl.textContent = 'Company name and PO number are required.';
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    errorEl.textContent = '';
+
+    const res = await fetch('/api/orders', {
+      method:'PATCH',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({ orderId:selectedOrder.id, companyName, poNumber, actor:'Egnali' })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Could not update the order.';
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Changes';
+      return;
+    }
+
+    const orderId = selectedOrder.id;
+    document.querySelector('#orderDialog').close();
+    await loadOrders();
+    await openOrder(orderId);
+  });
 }
 
 function actionButtons(order) {
