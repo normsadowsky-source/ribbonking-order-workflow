@@ -55,3 +55,10 @@ button{cursor:pointer}
 button.summary-card{appearance:none}
 button.summary-card:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,39,68,.08)}
 button.summary-card:focus-visible{outline:3px solid #b8d0ff;outline-offset:2px}
+
+.logas-row td{vertical-align:middle}
+.next-step{font-size:14px;line-height:1.35}
+.compact-open{white-space:nowrap;padding:8px 14px}
+.collapsed-history{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.collapsed-history summary{cursor:pointer;font-weight:750}
+.collapsed-history[open] summary{margin-bottom:14px}
