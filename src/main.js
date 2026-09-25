@@ -300,6 +300,7 @@ async function openOrder(id) {
     <section class="workflow-card">
       <div class="section-head"><div><h3>Next Workflow Action</h3><p>Use the button that matches what happened next.</p></div></div>
       <div class="workflow-actions">${actionButtons(selectedOrder)}</div>
+      <div id="vectorSendPanel"></div>
       <label class="notes">Notes for this action<textarea id="actionNotes" rows="3" placeholder="Optional notes"></textarea></label>
     </section>
 
@@ -316,7 +317,13 @@ async function openOrder(id) {
 
   detail.querySelector('#closeOrder').addEventListener('click', () => document.querySelector('#orderDialog').close());
   detail.querySelector('#editOrderBtn').addEventListener('click', () => showEditOrderForm(detail));
-  detail.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => runAction(btn.dataset.action)));
+  detail.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => {
+    if (btn.dataset.action === 'PREPARE_VECTOR_SEND') {
+      showVectorSendPanel(detail);
+      return;
+    }
+    runAction(btn.dataset.action);
+  }));
   detail.querySelector('#uploadAttachmentBtn').addEventListener('click', async () => {
     const input = detail.querySelector('#orderAttachmentInput');
     const files = Array.from(input.files || []);
@@ -399,12 +406,93 @@ function showEditOrderForm(detail) {
   });
 }
 
+function showVectorSendPanel(detail) {
+  const holder = detail.querySelector('#vectorSendPanel');
+  if (!holder) return;
+  if (holder.innerHTML.trim()) {
+    holder.innerHTML = '';
+    return;
+  }
+
+  holder.innerHTML = `
+    <section class="vector-send-card">
+      <div class="section-head">
+        <div>
+          <h3>Send to Vector</h3>
+          <p>Upload the logo/artwork that Vector needs. This attachment is required before the order can be sent.</p>
+        </div>
+      </div>
+      <label class="upload-label">Vector Attachment / Logo
+        <div class="dropzone compact-dropzone">
+          <strong>Select logo or artwork</strong>
+          <span>Accepted formats: PDF, EPS, AI, RIO</span>
+          <input id="vectorSendFile" type="file" accept=".pdf,.eps,.ai,.rio,application/pdf,application/postscript" />
+        </div>
+      </label>
+      <label class="notes">Instructions to Vector
+        <textarea id="vectorInstructions" rows="4" placeholder="Add the instructions Vector needs for this order."></textarea>
+      </label>
+      <div class="template-note">
+        <strong>Template:</strong> This area will use the Ribbon King Vector email template once Gmail is connected.
+      </div>
+      <p class="error" id="vectorSendError"></p>
+      <div class="actions">
+        <button type="button" class="secondary" id="cancelVectorSend">Cancel</button>
+        <button type="button" class="primary" id="confirmVectorSend">Upload & Send to Vector</button>
+      </div>
+    </section>
+  `;
+
+  holder.querySelector('#cancelVectorSend').addEventListener('click', () => { holder.innerHTML = ''; });
+  holder.querySelector('#confirmVectorSend').addEventListener('click', async () => {
+    const fileInput = holder.querySelector('#vectorSendFile');
+    const file = fileInput?.files?.[0];
+    const errorEl = holder.querySelector('#vectorSendError');
+    const button = holder.querySelector('#confirmVectorSend');
+    const instructions = holder.querySelector('#vectorInstructions')?.value?.trim() || '';
+
+    if (!file) {
+      errorEl.textContent = 'Attach the logo or artwork before sending to Vector.';
+      return;
+    }
+
+    const validation = validateFiles([file]);
+    if (validation) {
+      errorEl.textContent = validation;
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Uploading...';
+    errorEl.textContent = '';
+
+    try {
+      await uploadAttachment(selectedOrder.id, file, selectedOrder.owner || 'Logas');
+      const notes = instructions || 'Vector attachment uploaded and order sent to Vector.';
+      const res = await fetch('/api/order-action', {
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({ orderId:selectedOrder.id, action:'SENT_TO_VECTOR', actor:selectedOrder.owner || 'Logas', notes })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send the order to Vector.');
+
+      document.querySelector('#orderDialog').close();
+      await loadOrders();
+    } catch (error) {
+      errorEl.textContent = error.message || 'Could not send the order to Vector.';
+      button.disabled = false;
+      button.textContent = 'Upload & Send to Vector';
+    }
+  });
+}
+
 function actionButtons(order) {
   const status = order.status;
   const map = {
     PO_REVIEW_REQUIRED: [['ASSIGN_TO_LOGAS','PO Complete → Send to Logas'],['WAITING_CUSTOMER_INFO','Missing Info → Send to Logas with Notes']],
-    READY_FOR_VECTOR: [['SENT_TO_VECTOR','Send to Vector'],['WAITING_CUSTOMER_INFO','Waiting for Customer Information']],
-    WAITING_CUSTOMER_INFO: [['FOLLOW_UP_SENT','Follow-Up Sent'],['SENT_TO_VECTOR','Information Received → Send to Vector']],
+    READY_FOR_VECTOR: [['PREPARE_VECTOR_SEND','Send to Vector'],['WAITING_CUSTOMER_INFO','Waiting for Customer Information']],
+    WAITING_CUSTOMER_INFO: [['FOLLOW_UP_SENT','Follow-Up Sent'],['PREPARE_VECTOR_SEND','Information Received → Send to Vector']],
     WAITING_VECTOR: [['FOLLOW_UP_SENT','Follow-Up Vector'],['VECTOR_RECEIVED','Vector Artwork Received']],
     VECTOR_REVIEW_REQUIRED: [['PROOF_SENT','Proof Sent to Customer'],['REVISION_SENT_VECTOR','Send Correction to Vector']],
     WAITING_CUSTOMER_RESPONSE: [
