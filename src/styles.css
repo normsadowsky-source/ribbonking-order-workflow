@@ -50,3 +50,8 @@ button{cursor:pointer}
 .shared-note{display:block;margin-top:3px;color:#667085;font-size:10px;font-weight:650}.response-window p+b,.response-window b{color:#473b16}
 
 .edit-order-btn{margin-top:10px}.edit-order-card{margin:0 0 16px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}
+
+.summary-card{font:inherit;text-align:left;cursor:pointer;width:100%}
+button.summary-card{appearance:none}
+button.summary-card:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,39,68,.08)}
+button.summary-card:focus-visible{outline:3px solid #b8d0ff;outline-offset:2px}
