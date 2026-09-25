@@ -155,6 +155,7 @@ function filteredOrders() {
     return orders.filter(o => String(o.po_number || '').toLowerCase().includes(q));
   }
   if (currentFilter === 'overdue') return orders.filter(o => o.status !== 'COMPLETE' && isOverdue(o));
+  if (currentFilter === 'waiting') return orders.filter(o => o.status !== 'COMPLETE' && o.status?.startsWith('WAITING_'));
   if (currentFilter === 'complete') return orders.filter(o => o.status === 'COMPLETE');
   if (currentFilter === 'all') return orders;
   if (currentFilter === 'Egnali') return orders.filter(o => o.status !== 'COMPLETE' && (o.owner === 'Egnali' || o.status === 'WAITING_CUSTOMER_RESPONSE'));
@@ -169,14 +170,37 @@ function render() {
   const egnali = orders.filter(o => o.owner === 'Egnali' && o.status !== 'COMPLETE').length;
 
   document.querySelector('#summary').innerHTML = [
-    ['Needs Attention', overdue, 'red'],
-    ['Waiting', waiting, 'yellow'],
-    ['Logas Responsibilities', logas, 'blue'],
-    ['Egnali Responsibilities', egnali, 'blue']
-  ].map(([label,value,color]) => `<article class="summary-card ${color}"><span>${label}</span><strong>${value}</strong></article>`).join('');
+    ['Needs Attention', overdue, 'red', 'overdue'],
+    ['Waiting', waiting, 'yellow', 'waiting'],
+    ['Logas Responsibilities', logas, 'blue', 'Logas'],
+    ['Egnali Responsibilities', egnali, 'blue', 'Egnali']
+  ].map(([label,value,color,filter]) => `<button type="button" class="summary-card ${color}" data-summary-filter="${filter}"><span>${label}</span><strong>${value}</strong></button>`).join('');
+
+  document.querySelectorAll('[data-summary-filter]').forEach(card => {
+    card.addEventListener('click', () => {
+      currentFilter = card.dataset.summaryFilter || '';
+      searchQuery = '';
+      const search = document.querySelector('#orderSearch');
+      if (search) search.value = '';
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      render();
+    });
+  });
 
   const filtered = filteredOrders();
-  document.querySelector('#listTitle').textContent = searchQuery.trim() ? 'Search Results' : currentFilter === 'overdue' ? 'Overdue Orders' : currentFilter === 'complete' ? 'Completed Orders' : currentFilter === 'all' ? 'All Orders' : currentFilter ? currentFilter + ' Responsibilities' : 'Open Orders';
+  document.querySelector('#listTitle').textContent = searchQuery.trim()
+    ? 'Search Results'
+    : currentFilter === 'overdue'
+      ? 'Needs Attention'
+      : currentFilter === 'waiting'
+        ? 'Waiting Orders'
+        : currentFilter === 'complete'
+          ? 'Completed Orders'
+          : currentFilter === 'all'
+            ? 'All Orders'
+            : currentFilter
+              ? currentFilter + ' Responsibilities'
+              : 'Open Orders';
 
   document.querySelector('#ordersBody').innerHTML = filtered.length ? filtered.map(o => `
     <tr data-id="${o.id}" tabindex="0">
