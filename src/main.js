@@ -152,10 +152,7 @@ async function loadOrders() {
 function filteredOrders() {
   const q = searchQuery.trim().toLowerCase();
   if (q) {
-    return orders.filter(o => {
-      const haystack = [o.po_number,o.company_name,o.owner,statusLabel[o.status] || o.status,o.next_action].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(q);
-    });
+    return orders.filter(o => String(o.po_number || '').toLowerCase().includes(q));
   }
   if (currentFilter === 'overdue') return orders.filter(o => o.status !== 'COMPLETE' && isOverdue(o));
   if (currentFilter === 'complete') return orders.filter(o => o.status === 'COMPLETE');
