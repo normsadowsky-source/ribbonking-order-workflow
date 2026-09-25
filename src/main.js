@@ -260,7 +260,7 @@ async function openOrder(id) {
         <div class="eyebrow">PO ${escapeHtml(selectedOrder.po_number)}</div>
         <h2>${escapeHtml(selectedOrder.company_name)}</h2>
         <p>Complete order workspace</p>
-${currentFilter === 'Logas' ? '' : '<button type="button" class="secondary edit-order-btn" id="editOrderBtn">Edit Company / PO</button>'}
+<button type="button" class="secondary edit-order-btn" id="editOrderBtn">Edit Company / PO</button>
       </div>
       <button class="icon" id="closeOrder">×</button>
     </div>
