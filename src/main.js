@@ -58,6 +58,8 @@ app.innerHTML = `
         <button class="nav-item" data-filter="Egnali"><span>✓</span> Egnali</button>
         <button class="nav-item" data-filter="Logas"><span>↗</span> Logas</button>
         <button class="nav-item" data-filter="overdue"><span>!</span> Overdue</button>
+        <button class="nav-item" data-filter="complete"><span>✓</span> Completed</button>
+        <button class="nav-item" data-filter="all"><span>⌕</span> All Orders</button>
       </nav>
       <div class="sidebar-help">
         <strong>Workflow rule</strong>
@@ -83,11 +85,14 @@ app.innerHTML = `
             <h2 id="listTitle">Open Orders</h2>
             <p>Orders requiring action or monitoring.</p>
           </div>
-          <div class="legend">
-            <span><i class="dot blue"></i>Action</span>
-            <span><i class="dot yellow"></i>Waiting</span>
-            <span><i class="dot red"></i>Overdue</span>
-            <span><i class="dot green"></i>Complete</span>
+          <div class="panel-tools">
+            <label class="search-box"><span>Search</span><input id="orderSearch" type="search" placeholder="PO, company, owner, or status" autocomplete="off" /></label>
+            <div class="legend">
+              <span><i class="dot blue"></i>Action</span>
+              <span><i class="dot yellow"></i>Waiting</span>
+              <span><i class="dot red"></i>Overdue</span>
+              <span><i class="dot green"></i>Complete</span>
+            </div>
           </div>
         </div>
         <div class="table-wrap">
@@ -134,6 +139,8 @@ app.innerHTML = `
 let orders = [];
 let selectedOrder = null;
 let currentFilter = '';
+let searchQuery = '';
+let isCreatingOrder = false;
 
 async function loadOrders() {
   const res = await fetch('/api/orders');
@@ -143,9 +150,18 @@ async function loadOrders() {
 }
 
 function filteredOrders() {
-  if (currentFilter === 'overdue') return orders.filter(isOverdue);
-  if (currentFilter) return orders.filter(o => o.owner === currentFilter);
-  return orders;
+  const q = searchQuery.trim().toLowerCase();
+  if (q) {
+    return orders.filter(o => {
+      const haystack = [o.po_number,o.company_name,o.owner,statusLabel[o.status] || o.status,o.next_action].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+  if (currentFilter === 'overdue') return orders.filter(o => o.status !== 'COMPLETE' && isOverdue(o));
+  if (currentFilter === 'complete') return orders.filter(o => o.status === 'COMPLETE');
+  if (currentFilter === 'all') return orders;
+  if (currentFilter) return orders.filter(o => o.owner === currentFilter && o.status !== 'COMPLETE');
+  return orders.filter(o => o.status !== 'COMPLETE');
 }
 
 function render() {
@@ -162,7 +178,7 @@ function render() {
   ].map(([label,value,color]) => `<article class="summary-card ${color}"><span>${label}</span><strong>${value}</strong></article>`).join('');
 
   const filtered = filteredOrders();
-  document.querySelector('#listTitle').textContent = currentFilter === 'overdue' ? 'Overdue Orders' : currentFilter ? `${currentFilter} Responsibilities` : 'Open Orders';
+  document.querySelector('#listTitle').textContent = searchQuery.trim() ? 'Search Results' : currentFilter === 'overdue' ? 'Overdue Orders' : currentFilter === 'complete' ? 'Completed Orders' : currentFilter === 'all' ? 'All Orders' : currentFilter ? currentFilter + ' Responsibilities' : 'Open Orders';
 
   document.querySelector('#ordersBody').innerHTML = filtered.length ? filtered.map(o => `
     <tr data-id="${o.id}" tabindex="0">
@@ -339,20 +355,33 @@ document.querySelector('#cancelNew').addEventListener('click', () => document.qu
 
 document.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', () => {
   currentFilter = btn.dataset.filter || '';
+  searchQuery = '';
+  const search = document.querySelector('#orderSearch');
+  if (search) search.value = '';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   render();
 }));
 
+document.querySelector('#orderSearch').addEventListener('input', e => {
+  searchQuery = e.target.value || '';
+  render();
+});
+
 document.querySelector('#newOrderForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const fd = new FormData(e.currentTarget);
+  if (isCreatingOrder) return;
+  isCreatingOrder = true;
+  const form = e.currentTarget;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Creating...'; }
+  const fd = new FormData(form);
   const files = Array.from(document.querySelector('#newOrderFiles').files || []);
   const errorEl = document.querySelector('#newOrderError');
   errorEl.textContent = '';
 
   const validation = validateFiles(files);
-  if (validation) { errorEl.textContent = validation; return; }
+  if (validation) { errorEl.textContent = validation; isCreatingOrder = false; if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Order'; } return; }
 
   const res = await fetch('/api/orders', {
     method:'POST',
@@ -363,12 +392,16 @@ document.querySelector('#newOrderForm').addEventListener('submit', async e => {
 
   if (res.status === 409 && data.existingOrder) {
     errorEl.textContent = 'This PO already exists for this company. Open the existing order instead.';
+    isCreatingOrder = false;
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Order'; }
     return;
   }
 
   if (!res.ok) {
     const parts = [data.error, data.cause, data.detail, data.hint].filter(Boolean);
     errorEl.textContent = parts.join(' — ') || 'Could not create order.';
+    isCreatingOrder = false;
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Order'; }
     return;
   }
 
@@ -377,13 +410,17 @@ document.querySelector('#newOrderForm').addEventListener('submit', async e => {
   } catch (error) {
     errorEl.textContent = `Order created, but a file could not be attached: ${error.message}`;
     await loadOrders();
+    isCreatingOrder = false;
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Order'; }
     return;
   }
 
-  e.currentTarget.reset();
+  form.reset();
   document.querySelector('#newOrderDialog').close();
   await loadOrders();
   await openOrder(Number(data.id));
+  isCreatingOrder = false;
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Order'; }
 });
 
 loadOrders().catch(err => {
