@@ -56,7 +56,7 @@ app.innerHTML = `
       <nav class="side-nav">
         <button class="nav-item active" data-filter=""><span>▦</span> Dashboard</button>
         <button class="nav-item" data-filter="Egnali"><span>✓</span> Egnali</button>
-        <button class="nav-item" data-filter="Logas"><span>↗</span> Logas</button>
+        <button class="nav-item" data-filter="Logas"><span>↗</span> Logas Work</button>
         <button class="nav-item" data-filter="overdue"><span>!</span> Overdue</button>
         <button class="nav-item" data-filter="complete"><span>✓</span> Completed</button>
         <button class="nav-item" data-filter="all"><span>⌕</span> All Orders</button>
@@ -202,20 +202,45 @@ function render() {
               ? currentFilter + ' Responsibilities'
               : 'Open Orders';
 
-  document.querySelector('#ordersBody').innerHTML = filtered.length ? filtered.map(o => `
-    <tr data-id="${o.id}" tabindex="0">
-      <td><strong>${escapeHtml(o.po_number)}</strong></td>
-      <td>${escapeHtml(o.company_name)}</td>
-      <td><span class="pill ${tone(o)}">${isOverdue(o) ? 'Overdue · ' : ''}${statusLabel[o.status] || o.status}</span></td>
-      <td><span class="owner-chip">${escapeHtml(o.owner)}</span>${o.status === 'WAITING_CUSTOMER_RESPONSE' ? '<small class="shared-note">Visible to Egnali</small>' : ''}</td>
-      <td>${escapeHtml(o.next_action)}</td>
-      <td>${o.follow_up_due ? `${escapeHtml(o.follow_up_owner || o.owner)} · ${o.follow_up_due}` : (o.follow_up_owner ? `${escapeHtml(o.follow_up_owner)} · Pending` : '—')}</td>
-      <td>${daysWaiting(o)}</td>
-    </tr>`).join('') : `<tr><td colspan="7" class="empty">No orders in this view.</td></tr>`;
+  const table = document.querySelector('.table-wrap table');
+  const thead = table.querySelector('thead');
+
+  if (currentFilter === 'Logas' && !searchQuery.trim()) {
+    document.querySelector('#summary').innerHTML = '';
+    document.querySelector('#listTitle').textContent = 'Logas Work';
+    document.querySelector('.panel-head p').textContent = 'Open an order and follow the next step shown. Waiting orders stay here automatically.';
+    thead.innerHTML = '<tr><th>PO</th><th>Company</th><th>What to Do Next</th><th>Status</th><th></th></tr>';
+    document.querySelector('#ordersBody').innerHTML = filtered.length ? filtered.map(o => `
+      <tr data-id="${o.id}" tabindex="0" class="logas-row">
+        <td><strong>${escapeHtml(o.po_number)}</strong></td>
+        <td>${escapeHtml(o.company_name)}</td>
+        <td><strong class="next-step">${escapeHtml(o.next_action)}</strong></td>
+        <td><span class="pill ${tone(o)}">${isOverdue(o) ? 'Overdue · ' : ''}${statusLabel[o.status] || o.status}</span></td>
+        <td><button type="button" class="secondary compact-open" data-open-id="${o.id}">Open</button></td>
+      </tr>`).join('') : '<tr><td colspan="5" class="empty">Nothing for Logas right now.</td></tr>';
+  } else {
+    thead.innerHTML = '<tr><th>PO</th><th>Company</th><th>Status</th><th>Owner</th><th>Next Action</th><th>Follow-Up</th><th>Waiting</th></tr>';
+    document.querySelector('#ordersBody').innerHTML = filtered.length ? filtered.map(o => `
+      <tr data-id="${o.id}" tabindex="0">
+        <td><strong>${escapeHtml(o.po_number)}</strong></td>
+        <td>${escapeHtml(o.company_name)}</td>
+        <td><span class="pill ${tone(o)}">${isOverdue(o) ? 'Overdue · ' : ''}${statusLabel[o.status] || o.status}</span></td>
+        <td><span class="owner-chip">${escapeHtml(o.owner)}</span>${o.status === 'WAITING_CUSTOMER_RESPONSE' ? '<small class="shared-note">Visible to Egnali</small>' : ''}</td>
+        <td>${escapeHtml(o.next_action)}</td>
+        <td>${o.follow_up_due ? `${escapeHtml(o.follow_up_owner || o.owner)} · ${o.follow_up_due}` : (o.follow_up_owner ? `${escapeHtml(o.follow_up_owner)} · Pending` : '—')}</td>
+        <td>${daysWaiting(o)}</td>
+      </tr>`).join('') : `<tr><td colspan="7" class="empty">No orders in this view.</td></tr>`;
+  }
 
   document.querySelectorAll('#ordersBody tr[data-id]').forEach(row => {
-    row.addEventListener('click', () => openOrder(Number(row.dataset.id)));
+    row.addEventListener('click', e => {
+      if (e.target.closest('[data-open-id]')) return;
+      openOrder(Number(row.dataset.id));
+    });
     row.addEventListener('keydown', e => { if (e.key === 'Enter') openOrder(Number(row.dataset.id)); });
+  });
+  document.querySelectorAll('[data-open-id]').forEach(btn => {
+    btn.addEventListener('click', () => openOrder(Number(btn.dataset.openId)));
   });
 }
 
@@ -278,10 +303,15 @@ async function openOrder(id) {
       <label class="notes">Notes for this action<textarea id="actionNotes" rows="3" placeholder="Optional notes"></textarea></label>
     </section>
 
-    <section class="history-card">
-      <div class="section-head"><div><h3>Activity History</h3><p>Permanent audit trail for this order.</p></div></div>
-      <div class="history">${history.map(h => `<div><strong>${formatEvent(h.event_type)}</strong><span>${escapeHtml(h.actor)} · ${new Date(h.created_at).toLocaleString()}</span>${h.notes ? `<p>${escapeHtml(h.notes)}</p>` : ''}</div>`).join('') || '<p>No history yet.</p>'}</div>
-    </section>
+    ${currentFilter === 'Logas' ? `
+      <details class="history-card collapsed-history">
+        <summary>Activity History</summary>
+        <div class="history">${history.map(h => `<div><strong>${formatEvent(h.event_type)}</strong><span>${escapeHtml(h.actor)} · ${new Date(h.created_at).toLocaleString()}</span>${h.notes ? `<p>${escapeHtml(h.notes)}</p>` : ''}</div>`).join('') || '<p>No history yet.</p>'}</div>
+      </details>` : `
+      <section class="history-card">
+        <div class="section-head"><div><h3>Activity History</h3><p>Permanent audit trail for this order.</p></div></div>
+        <div class="history">${history.map(h => `<div><strong>${formatEvent(h.event_type)}</strong><span>${escapeHtml(h.actor)} · ${new Date(h.created_at).toLocaleString()}</span>${h.notes ? `<p>${escapeHtml(h.notes)}</p>` : ''}</div>`).join('') || '<p>No history yet.</p>'}</div>
+      </section>`}
   `;
 
   detail.querySelector('#closeOrder').addEventListener('click', () => document.querySelector('#orderDialog').close());
