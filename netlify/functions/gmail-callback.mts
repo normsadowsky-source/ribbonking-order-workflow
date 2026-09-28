@@ -27,9 +27,9 @@ export default async (req: Request, _context: Context) => {
     return redirect(appUrl + '?gmail=error&reason=state');
   }
 
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const redirectUri = process.env.GMAIL_REDIRECT_URI;
+  const clientId = Netlify.env.get('GMAIL_CLIENT_ID')?.trim();
+  const clientSecret = Netlify.env.get('GMAIL_CLIENT_SECRET')?.trim();
+  const redirectUri = Netlify.env.get('GMAIL_REDIRECT_URI')?.trim();
 
   if (!clientId || !clientSecret || !redirectUri) {
     return redirect(appUrl + '?gmail=error&reason=config');
@@ -50,7 +50,8 @@ export default async (req: Request, _context: Context) => {
   const tokens = await tokenRes.json() as any;
   if (!tokenRes.ok || !tokens.access_token) {
     console.error('Gmail token exchange failed', tokens);
-    return redirect(appUrl + '?gmail=error&reason=token');
+    const googleError = encodeURIComponent(String(tokens?.error || 'token'));
+    return redirect(appUrl + `?gmail=error&reason=${googleError}`);
   }
 
   const profileRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
@@ -63,7 +64,7 @@ export default async (req: Request, _context: Context) => {
     return redirect(appUrl + '?gmail=error&reason=profile');
   }
 
-  const expectedEmail = process.env.GMAIL_ACCOUNT_EMAIL?.trim().toLowerCase();
+  const expectedEmail = Netlify.env.get('GMAIL_ACCOUNT_EMAIL')?.trim().toLowerCase();
   const connectedEmail = String(profile.emailAddress).trim().toLowerCase();
 
   if (expectedEmail && connectedEmail !== expectedEmail) {
