@@ -13,7 +13,7 @@ export default async (_req: Request, _context: Context) => {
     const connection = await store.get('connection', { type: 'json' }) as any;
 
     return json({
-      configured: Boolean(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REDIRECT_URI),
+      configured: Boolean(Netlify.env.get('GMAIL_CLIENT_ID') && Netlify.env.get('GMAIL_CLIENT_SECRET') && Netlify.env.get('GMAIL_REDIRECT_URI')),
       connected: Boolean(connection?.refreshToken),
       email: connection?.email || null,
       connectedAt: connection?.connectedAt || null
