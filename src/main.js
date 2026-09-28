@@ -65,6 +65,10 @@ app.innerHTML = `
         <strong>Workflow rule</strong>
         <p>Every open PO must always show an owner, status, and next action.</p>
       </div>
+      <div class="gmail-card" id="gmailCard">
+        <strong>Gmail</strong>
+        <span>Checking connection...</span>
+      </div>
     </aside>
 
     <main class="main-content">
@@ -141,6 +145,53 @@ let selectedOrder = null;
 let currentFilter = '';
 let searchQuery = '';
 let isCreatingOrder = false;
+let gmailStatus = null;
+
+async function loadGmailStatus() {
+  const card = document.querySelector('#gmailCard');
+  if (!card) return;
+  try {
+    const res = await fetch('/api/gmail/status');
+    gmailStatus = await res.json();
+    if (gmailStatus.connected) {
+      card.innerHTML = `
+        <strong>Gmail Connected</strong>
+        <span>${escapeHtml(gmailStatus.email || '')}</span>
+        <button type="button" class="gmail-test-btn" id="gmailTestBtn">Send Test to Self</button>
+        <small id="gmailTestStatus"></small>
+      `;
+      card.querySelector('#gmailTestBtn').addEventListener('click', sendGmailTest);
+    } else {
+      card.innerHTML = `
+        <strong>Gmail Not Connected</strong>
+        <span>${gmailStatus.configured ? 'Authorization required.' : 'Configuration incomplete.'}</span>
+        <a class="gmail-connect-link" href="/api/gmail/connect">Connect Gmail</a>
+      `;
+    }
+  } catch (error) {
+    card.innerHTML = '<strong>Gmail</strong><span>Could not check connection.</span>';
+  }
+}
+
+async function sendGmailTest() {
+  const button = document.querySelector('#gmailTestBtn');
+  const status = document.querySelector('#gmailTestStatus');
+  if (!button || !status) return;
+  button.disabled = true;
+  button.textContent = 'Sending...';
+  status.textContent = '';
+  try {
+    const res = await fetch('/api/gmail/send-test', { method:'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not send test email.');
+    status.textContent = `Sent successfully to ${data.email}.`;
+  } catch (error) {
+    status.textContent = error.message || 'Could not send test email.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Send Test to Self';
+  }
+}
 
 async function loadOrders() {
   const res = await fetch('/api/orders');
@@ -697,6 +748,7 @@ document.querySelector('#newOrderForm').addEventListener('submit', async e => {
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Order'; }
 });
 
+loadGmailStatus();
 loadOrders().catch(err => {
   document.querySelector('#ordersBody').innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
 });
