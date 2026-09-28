@@ -26,7 +26,7 @@ export default async (_req: Request, _context: Context) => {
     state,
     scope: [
       'https://www.googleapis.com/auth/gmail.send',
-      'https://www.googleapis.com/auth/gmail.readonly'
+      'https://www.googleapis.com/auth/gmail.modify'
     ].join(' ')
   });
 
