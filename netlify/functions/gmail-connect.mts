@@ -8,7 +8,11 @@ export default async (_req: Request, _context: Context) => {
   const redirectUri = process.env.GMAIL_REDIRECT_URI;
 
   if (!clientId || !redirectUri) {
-    return new Response('Gmail OAuth is not configured yet.', { status: 503 });
+    const missing = [
+      !clientId ? 'GMAIL_CLIENT_ID' : null,
+      !redirectUri ? 'GMAIL_REDIRECT_URI' : null
+    ].filter(Boolean).join(', ');
+    return new Response(`Gmail OAuth is not configured yet. Missing: ${missing}`, { status: 503 });
   }
 
   const state = crypto.randomUUID();
