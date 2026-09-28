@@ -16,14 +16,16 @@ export default async (_req: Request, _context: Context) => {
       configured: Boolean(Netlify.env.get('GMAIL_CLIENT_ID') && Netlify.env.get('GMAIL_CLIENT_SECRET') && Netlify.env.get('GMAIL_REDIRECT_URI')),
       connected: Boolean(connection?.refreshToken),
       email: connection?.email || null,
-      connectedAt: connection?.connectedAt || null
+      connectedAt: connection?.connectedAt || null,
+      canModify: String(connection?.scope || '').includes('https://www.googleapis.com/auth/gmail.modify')
     });
   } catch (error) {
     console.error('Gmail status failed', error);
     return json({
       configured: Boolean(Netlify.env.get('GMAIL_CLIENT_ID') && Netlify.env.get('GMAIL_CLIENT_SECRET') && Netlify.env.get('GMAIL_REDIRECT_URI')),
       connected: false,
-      email: null
+      email: null,
+      canModify: false
     });
   }
 };
