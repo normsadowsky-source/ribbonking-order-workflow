@@ -157,6 +157,9 @@ async function loadGmailStatus() {
       card.innerHTML = `
         <strong>Gmail Connected</strong>
         <span>${escapeHtml(gmailStatus.email || '')}</span>
+        ${gmailStatus.canModify
+          ? '<small>Email read status sync enabled.</small>'
+          : '<a class="gmail-connect-link" href="/api/gmail/connect">Enable Read/Unread Sync</a>'}
         <button type="button" class="gmail-test-btn" id="gmailTestBtn">Send Test to Self</button>
         <small id="gmailTestStatus"></small>
       `;
