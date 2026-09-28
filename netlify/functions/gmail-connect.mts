@@ -4,8 +4,8 @@ const redirect = (url: string, headers: Record<string,string> = {}) =>
   new Response(null, { status: 302, headers: { location: url, ...headers } });
 
 export default async (_req: Request, _context: Context) => {
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const redirectUri = process.env.GMAIL_REDIRECT_URI;
+  const clientId = Netlify.env.get('GMAIL_CLIENT_ID')?.trim();
+  const redirectUri = Netlify.env.get('GMAIL_REDIRECT_URI')?.trim();
 
   if (!clientId || !redirectUri) {
     const missing = [
