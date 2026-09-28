@@ -358,6 +358,11 @@ async function openOrder(id) {
       <label class="notes">Notes for this action<textarea id="actionNotes" rows="3" placeholder="Optional notes"></textarea></label>
     </section>
 
+    <section class="email-card">
+      <div class="section-head"><div><h3>Email Conversations</h3><p>Gmail threads linked to this PO. Opening an unread message here also marks it Read in Gmail.</p></div></div>
+      <div id="orderEmails"><p class="muted">Loading email conversations...</p></div>
+    </section>
+
     ${currentFilter === 'Logas' ? `
       <details class="history-card collapsed-history">
         <summary>Activity History</summary>
@@ -398,6 +403,7 @@ async function openOrder(id) {
     }
   });
   document.querySelector('#orderDialog').showModal();
+  loadOrderEmails(id, detail);
 }
 
 function showEditOrderForm(detail) {
@@ -488,7 +494,8 @@ function showVectorSendPanel(detail) {
         <textarea id="vectorInstructions" rows="4" placeholder="Add the instructions Vector needs for this order."></textarea>
       </label>
       <div class="template-note">
-        <strong>Template:</strong> This area will use the Ribbon King Vector email template once Gmail is connected.
+        <strong>Recipient:</strong> orders@vectorart.co<br>
+        <strong>Subject:</strong> PO [number] - [company] - Vector Artwork Request
       </div>
       <p class="error" id="vectorSendError"></p>
       <div class="actions">
@@ -523,12 +530,15 @@ function showVectorSendPanel(detail) {
 
     try {
       await uploadAttachment(selectedOrder.id, file, selectedOrder.owner || 'Logas');
-      const notes = instructions || 'Vector attachment uploaded and order sent to Vector.';
-      const res = await fetch('/api/order-action', {
-        method:'POST',
-        headers:{'content-type':'application/json'},
-        body:JSON.stringify({ orderId:selectedOrder.id, action:'SENT_TO_VECTOR', actor:selectedOrder.owner || 'Logas', notes })
-      });
+
+      button.textContent = 'Sending Email...';
+      const form = new FormData();
+      form.append('orderId', String(selectedOrder.id));
+      form.append('actor', selectedOrder.owner || 'Logas');
+      form.append('instructions', instructions);
+      form.append('file', file, file.name);
+
+      const res = await fetch('/api/gmail/send-vector', { method:'POST', body:form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not send the order to Vector.');
 
@@ -641,6 +651,83 @@ async function runAction(action) {
   }
   document.querySelector('#orderDialog').close();
   await loadOrders();
+}
+
+
+async function loadOrderEmails(orderId, detail) {
+  const holder = detail?.querySelector('#orderEmails');
+  if (!holder) return;
+
+  try {
+    const res = await fetch(`/api/gmail/order-emails?orderId=${orderId}`);
+    const data = await res.json().catch(() => ([]));
+    if (!res.ok) throw new Error(data.error || 'Could not load email conversations.');
+
+    if (!Array.isArray(data) || !data.length) {
+      holder.innerHTML = '<p class="muted">No Gmail conversation linked to this PO yet.</p>';
+      return;
+    }
+
+    holder.innerHTML = data.map(thread => `
+      <div class="email-thread">
+        <div class="email-thread-head">
+          <strong>${escapeHtml(thread.subject || 'Email conversation')}</strong>
+          <span>${escapeHtml(thread.type || '')} · ${escapeHtml(thread.participantEmail || '')}</span>
+        </div>
+        <div class="email-message-list">
+          ${(thread.messages || []).map(message => `
+            <button type="button" class="email-message ${message.unread ? 'unread' : ''}" data-message-id="${escapeHtml(message.id)}">
+              <span class="email-message-top">
+                <strong>${escapeHtml(message.from || 'Unknown sender')}</strong>
+                <em>${escapeHtml(message.date || '')}</em>
+              </span>
+              <span class="email-message-subject">${escapeHtml(message.subject || thread.subject || '')}</span>
+              <span class="email-message-snippet">${escapeHtml(message.snippet || '')}</span>
+              ${message.unread ? '<b class="unread-badge">Unread</b>' : '<b class="read-badge">Read</b>'}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    holder.querySelectorAll('[data-message-id]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const actor = currentFilter === 'Logas' ? 'Logas' : (selectedOrder?.owner || 'Egnali');
+        const wasUnread = button.classList.contains('unread');
+        button.classList.toggle('expanded');
+
+        if (wasUnread) {
+          const readRes = await fetch('/api/gmail/mark-read', {
+            method:'POST',
+            headers:{'content-type':'application/json'},
+            body:JSON.stringify({
+              messageId:button.dataset.messageId,
+              orderId,
+              actor
+            })
+          });
+          const readData = await readRes.json().catch(() => ({}));
+          if (readRes.ok) {
+            button.classList.remove('unread');
+            const badge = button.querySelector('.unread-badge');
+            if (badge) {
+              badge.className = 'read-badge';
+              badge.textContent = 'Read';
+            }
+          } else {
+            const existing = holder.querySelector('.email-sync-error');
+            if (existing) existing.remove();
+            const error = document.createElement('p');
+            error.className = 'error email-sync-error';
+            error.textContent = readData.error || 'Could not synchronize Read status with Gmail.';
+            holder.prepend(error);
+          }
+        }
+      });
+    });
+  } catch (error) {
+    holder.innerHTML = `<p class="error">${escapeHtml(error.message || 'Could not load email conversations.')}</p>`;
+  }
 }
 
 async function uploadAttachment(orderId, file, actor='Egnali') {
