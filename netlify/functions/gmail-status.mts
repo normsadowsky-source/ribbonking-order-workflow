@@ -21,7 +21,7 @@ export default async (_req: Request, _context: Context) => {
   } catch (error) {
     console.error('Gmail status failed', error);
     return json({
-      configured: Boolean(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REDIRECT_URI),
+      configured: Boolean(Netlify.env.get('GMAIL_CLIENT_ID') && Netlify.env.get('GMAIL_CLIENT_SECRET') && Netlify.env.get('GMAIL_REDIRECT_URI')),
       connected: false,
       email: null
     });
