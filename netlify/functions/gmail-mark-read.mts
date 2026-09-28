@@ -1,5 +1,6 @@
 import type { Config, Context } from '@netlify/functions';
 import { getStore } from '@netlify/blobs';
+import { getDatabase } from '@netlify/database';
 
 const json = (data: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(data), {
@@ -37,6 +38,8 @@ export default async (req: Request, _context: Context) => {
   try {
     const body = await req.json().catch(() => ({})) as any;
     const messageId = String(body?.messageId || '').trim();
+    const orderId = Number(body?.orderId);
+    const actor = String(body?.actor || 'Logas').trim() || 'Logas';
     if (!messageId) return json({ error: 'messageId is required.' }, { status: 400 });
 
     const store = getStore('gmail-oauth');
@@ -62,6 +65,15 @@ export default async (req: Request, _context: Context) => {
     if (!modifyRes.ok) {
       console.error('Gmail mark-read failed', result);
       return json({ error: result?.error?.message || 'Could not mark Gmail message as read.' }, { status: 502 });
+    }
+
+    if (Number.isFinite(orderId) && orderId > 0) {
+      const db = getDatabase();
+      await db.pool.query(
+        `INSERT INTO order_events (order_id,event_type,actor,notes)
+         VALUES ($1,'EMAIL_OPENED',$2,$3)`,
+        [orderId, actor, `Opened Gmail message ${messageId}; Gmail marked Read.`]
+      );
     }
 
     return json({ ok: true, messageId: result.id || messageId, labelIds: result.labelIds || [] });
