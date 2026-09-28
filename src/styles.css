@@ -74,3 +74,25 @@ button.summary-card:focus-visible{outline:3px solid #b8d0ff;outline-offset:2px}
 .gmail-test-btn{background:#fff;color:#16365c}
 .gmail-test-btn:disabled{opacity:.65;cursor:wait}
 .gmail-connect-link{display:block;background:#fff;color:#16365c;text-decoration:none}
+
+.email-card{margin:0 0 16px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.email-thread{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#f8fafc}
+.email-thread+.email-thread{margin-top:10px}
+.email-thread-head{padding:11px 12px;border-bottom:1px solid var(--line);background:#fff}
+.email-thread-head strong,.email-thread-head span{display:block}
+.email-thread-head span{margin-top:2px;color:var(--muted);font-size:11px}
+.email-message-list{display:grid}
+.email-message{position:relative;border:0;border-bottom:1px solid var(--line);background:#fff;padding:11px 12px;text-align:left;color:inherit}
+.email-message:last-child{border-bottom:0}
+.email-message:hover{background:#f7f9fc}
+.email-message.unread{background:#eef6ff}
+.email-message-top{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.email-message-top strong{font-size:13px}
+.email-message-top em{font-size:11px;color:var(--muted);font-style:normal}
+.email-message-subject,.email-message-snippet{display:block}
+.email-message-subject{font-size:12px;font-weight:700;margin-top:4px}
+.email-message-snippet{font-size:12px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:55px}
+.email-message.expanded .email-message-snippet{white-space:normal;overflow:visible}
+.unread-badge,.read-badge{position:absolute;right:11px;bottom:10px;border-radius:999px;padding:3px 7px;font-size:10px}
+.unread-badge{background:#dbeafe;color:#174ea6}
+.read-badge{background:#eef2f6;color:#667085}
