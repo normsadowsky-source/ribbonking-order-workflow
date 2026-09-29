@@ -52,8 +52,7 @@ async function accessToken(refreshToken: string) {
 }
 
 function encodeHeader(value: string) {
-  return value.replace(/[
-]+/g, ' ').trim();
+  return value.replace(/[\\r\\n]+/g, ' ').trim();
 }
 
 function wrapBase64(base64: string) {
