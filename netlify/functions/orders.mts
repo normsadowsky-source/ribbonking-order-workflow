@@ -23,7 +23,7 @@ export default async (req: Request, _context: Context) => {
       const result = await db.pool.query(`
         SELECT id, po_number, company_name, status, owner, next_action, follow_up_due,
                waiting_since, follow_up_owner, follow_up_stage, ship_date_sent_at,
-               plate_status, created_at, updated_at
+               plate_status, customer_email, created_at, updated_at
         FROM orders
         ORDER BY
           CASE WHEN follow_up_due IS NOT NULL AND follow_up_due < CURRENT_DATE THEN 0 ELSE 1 END,
@@ -42,12 +42,14 @@ export default async (req: Request, _context: Context) => {
       poNumber?: string;
       companyName?: string;
       actor?: string;
+      customerEmail?: string;
     };
 
     const orderId = Number(body?.orderId);
     const poNumber = body?.poNumber?.trim();
     const companyName = body?.companyName?.trim();
     const actor = body?.actor?.trim() || 'Egnali';
+    const customerEmail = body?.customerEmail?.trim() || '';
 
     if (!orderId || !poNumber || !companyName) {
       return json({ error: 'Order ID, PO number, and company name are required.' }, { status: 400 });
@@ -58,7 +60,7 @@ export default async (req: Request, _context: Context) => {
       await client.query('BEGIN');
 
       const currentResult = await client.query(
-        'SELECT id, po_number, company_name FROM orders WHERE id = $1',
+        'SELECT id, po_number, company_name, customer_email FROM orders WHERE id = $1',
         [orderId]
       );
       const current = currentResult.rows[0];
@@ -69,17 +71,18 @@ export default async (req: Request, _context: Context) => {
 
       const updatedResult = await client.query(
         `UPDATE orders
-            SET po_number = $1, company_name = $2, updated_at = NOW()
-          WHERE id = $3
+            SET po_number = $1, company_name = $2, customer_email = NULLIF($3, ''), updated_at = NOW()
+          WHERE id = $4
           RETURNING id, po_number, company_name, status, owner, next_action, follow_up_due,
                     waiting_since, follow_up_owner, follow_up_stage, ship_date_sent_at,
-                    plate_status, created_at, updated_at`,
-        [poNumber, companyName, orderId]
+                    plate_status, customer_email, created_at, updated_at`,
+        [poNumber, companyName, customerEmail, orderId]
       );
 
       const changes = [];
       if (current.po_number !== poNumber) changes.push(`PO: ${current.po_number} → ${poNumber}`);
       if (current.company_name !== companyName) changes.push(`Company: ${current.company_name} → ${companyName}`);
+      if ((current.customer_email || '') !== customerEmail) changes.push(`Customer Email: ${current.customer_email || 'None'} → ${customerEmail || 'None'}`);
 
       await client.query(
         `INSERT INTO order_events (order_id, event_type, actor, notes)
@@ -106,11 +109,13 @@ export default async (req: Request, _context: Context) => {
       poNumber?: string;
       companyName?: string;
       actor?: string;
+      customerEmail?: string;
     };
 
     const poNumber = body?.poNumber?.trim();
     const companyName = body?.companyName?.trim();
     const actor = body?.actor?.trim() || 'Egnali';
+    const customerEmail = body?.customerEmail?.trim() || '';
 
     if (!poNumber || !companyName) {
       return json({ error: 'PO number and company name are required.' }, { status: 400 });
@@ -121,12 +126,12 @@ export default async (req: Request, _context: Context) => {
       await client.query('BEGIN');
 
       const insert = await client.query(
-        `INSERT INTO orders (po_number, company_name, created_by)
-         VALUES ($1, $2, $3)
+        `INSERT INTO orders (po_number, company_name, customer_email, created_by)
+         VALUES ($1, $2, NULLIF($3, ''), $4)
          RETURNING id, po_number, company_name, status, owner, next_action, follow_up_due,
                    waiting_since, follow_up_owner, follow_up_stage, ship_date_sent_at,
-                   plate_status, created_at, updated_at`,
-        [poNumber, companyName, actor]
+                   plate_status, customer_email, created_at, updated_at`,
+        [poNumber, companyName, customerEmail, actor]
       );
 
       const order = insert.rows[0];
@@ -146,7 +151,7 @@ export default async (req: Request, _context: Context) => {
         const existing = await db.pool.query(
           `SELECT id, po_number, company_name, status, owner, next_action, follow_up_due,
                   waiting_since, follow_up_owner, follow_up_stage, ship_date_sent_at,
-                  plate_status, created_at, updated_at
+                  plate_status, customer_email, created_at, updated_at
            FROM orders
            WHERE BTRIM(po_number) = BTRIM($1)
              AND LOWER(BTRIM(company_name)) = LOWER(BTRIM($2))
