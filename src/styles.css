@@ -102,3 +102,6 @@ button.summary-card:focus-visible{outline:3px solid #b8d0ff;outline-offset:2px}
 .email-section-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .email-section-head .secondary{white-space:nowrap}
 @media(max-width:760px){.meta{grid-template-columns:1fr}.email-section-head{display:block}.email-section-head .secondary{margin-top:8px;width:100%}}
+
+.email-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:760px){.email-actions{justify-content:stretch}.email-actions .secondary{flex:1}}
