@@ -595,12 +595,25 @@ function showCustomerEmailPanel(detail, kind='GENERAL') {
     ACKNOWLEDGMENT: {
       title: 'Send Acknowledgment',
       subject: `PO ${selectedOrder.po_number} - ${selectedOrder.company_name}`,
-      body: `Hello,
+      body: `Thank you for your PO!
 
-We received your order for PO ${selectedOrder.po_number}.
+We will send a proof within 1–2 business days.
 
-Thank you,
-Ribbon King`,
+SHIPPING & INSURANCE
+
+Shipping on RibbonKing’s FedEx account
+• Insurance included
+
+Shipping on your FedEx / UPS account (default)
+• No insurance included (carrier liability ~ $100)
+• Add insurance at 1.25% of invoice (must be requested before production)
+
+IMPORTANT
+• Shipments on your account travel at your risk if not insured
+• Lost or damaged shipments require a replacement order
+• Proceeding with production confirms acceptance of these terms
+
+Please review and let us know if anything needs to be updated before we proceed.`,
       attachment: false
     },
     PROOF: {
