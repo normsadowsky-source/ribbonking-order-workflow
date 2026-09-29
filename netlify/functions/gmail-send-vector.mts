@@ -67,6 +67,8 @@ export default async (req: Request, _context: Context) => {
     const orderId = Number(form.get('orderId'));
     const actor = String(form.get('actor') || 'Logas').trim() || 'Logas';
     const instructions = String(form.get('instructions') || '').trim();
+    const requestedSubject = String(form.get('subject') || '').trim();
+    const requestedBody = String(form.get('body') || '').trim();
     const file = form.get('file');
 
     if (!Number.isFinite(orderId) || orderId <= 0) {
@@ -90,8 +92,8 @@ export default async (req: Request, _context: Context) => {
       return json({ error: 'Gmail is not connected.' }, { status: 409 });
     }
 
-    const subject = `PO ${order.po_number} - ${order.company_name} - Vector Artwork Request`;
-    const body = [
+    const subject = requestedSubject || `PO ${order.po_number} - ${order.company_name} - Vector Artwork Request`;
+    const body = requestedBody || [
       'Hello Vector,',
       '',
       `Please process the attached artwork for Ribbon King PO ${order.po_number}.`,
