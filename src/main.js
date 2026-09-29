@@ -364,7 +364,10 @@ async function openOrder(id) {
     <section class="email-card">
       <div class="section-head email-section-head">
         <div><h3>Email Conversations</h3><p>Gmail threads linked to this PO. Opening an unread message here also marks it Read in Gmail.</p></div>
-        <button type="button" class="secondary" id="emailCustomerBtn">Email Customer</button>
+        <div class="email-actions">
+          <button type="button" class="secondary" id="refreshEmailsBtn">Refresh Emails</button>
+          <button type="button" class="secondary" id="emailCustomerBtn">Email Customer</button>
+        </div>
       </div>
       <div id="orderEmails"><p class="muted">Loading email conversations...</p></div>
     </section>
@@ -400,6 +403,14 @@ async function openOrder(id) {
   }));
   const emailCustomerBtn = detail.querySelector('#emailCustomerBtn');
   if (emailCustomerBtn) emailCustomerBtn.addEventListener('click', () => showCustomerEmailPanel(detail, 'GENERAL'));
+  const refreshEmailsBtn = detail.querySelector('#refreshEmailsBtn');
+  if (refreshEmailsBtn) refreshEmailsBtn.addEventListener('click', async () => {
+    refreshEmailsBtn.disabled = true;
+    refreshEmailsBtn.textContent = 'Refreshing...';
+    await loadOrderEmails(id, detail);
+    refreshEmailsBtn.disabled = false;
+    refreshEmailsBtn.textContent = 'Refresh Emails';
+  });
   detail.querySelector('#uploadAttachmentBtn').addEventListener('click', async () => {
     const input = detail.querySelector('#orderAttachmentInput');
     const files = Array.from(input.files || []);
@@ -835,7 +846,7 @@ async function loadOrderEmails(orderId, detail) {
                 <strong>${escapeHtml(message.from || 'Unknown sender')}</strong>
                 <em>${escapeHtml(message.date || '')}</em>
               </span>
-              <span class="email-message-subject">${escapeHtml(message.subject || thread.subject || '')}</span>
+              <span class="email-message-subject">${message.incoming ? '<b>Incoming · </b>' : ''}${escapeHtml(message.subject || thread.subject || '')}</span>
               <span class="email-message-snippet">${escapeHtml(message.snippet || '')}</span>
               ${message.unread ? '<b class="unread-badge">Unread</b>' : '<b class="read-badge">Read</b>'}
             </button>
