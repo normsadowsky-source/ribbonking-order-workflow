@@ -122,6 +122,7 @@ app.innerHTML = `
       <div class="form-grid">
         <label>Company Name<input name="companyName" required autocomplete="organization" placeholder="Customer / company name" /></label>
         <label>PO Number<input name="poNumber" required autocomplete="off" placeholder="PO number" /></label>
+        <label>Customer Email<input name="customerEmail" type="email" autocomplete="email" placeholder="customer@example.com" /></label>
       </div>
       <label class="upload-label">Artwork / PO Files
         <div class="dropzone">
@@ -314,7 +315,7 @@ async function openOrder(id) {
         <div class="eyebrow">PO ${escapeHtml(selectedOrder.po_number)}</div>
         <h2>${escapeHtml(selectedOrder.company_name)}</h2>
         <p>Complete order workspace</p>
-<button type="button" class="secondary edit-order-btn" id="editOrderBtn">Edit Company / PO</button>
+<button type="button" class="secondary edit-order-btn" id="editOrderBtn">Edit Company / PO / Email</button>
       </div>
       <button class="icon" id="closeOrder">×</button>
     </div>
@@ -328,6 +329,7 @@ async function openOrder(id) {
     <div class="meta">
       <div><span>Status</span><strong>${statusLabel[selectedOrder.status] || selectedOrder.status}</strong></div>
       <div><span>Follow-Up</span><strong>${selectedOrder.follow_up_owner ? `${escapeHtml(selectedOrder.follow_up_owner)}${selectedOrder.follow_up_due ? ` · ${selectedOrder.follow_up_due}` : ' · Pending'}` : 'None'}</strong></div>
+      <div><span>Customer Email</span><strong>${selectedOrder.customer_email ? escapeHtml(selectedOrder.customer_email) : 'Not entered'}</strong></div>
     </div>
 
     ${selectedOrder.status === 'WAITING_CUSTOMER_RESPONSE' ? `
@@ -355,11 +357,15 @@ async function openOrder(id) {
       <div class="section-head"><div><h3>Next Workflow Action</h3><p>Use the button that matches what happened next.</p></div></div>
       <div class="workflow-actions">${actionButtons(selectedOrder)}</div>
       <div id="vectorSendPanel"></div>
+      <div id="customerEmailPanel"></div>
       <label class="notes">Notes for this action<textarea id="actionNotes" rows="3" placeholder="Optional notes"></textarea></label>
     </section>
 
     <section class="email-card">
-      <div class="section-head"><div><h3>Email Conversations</h3><p>Gmail threads linked to this PO. Opening an unread message here also marks it Read in Gmail.</p></div></div>
+      <div class="section-head email-section-head">
+        <div><h3>Email Conversations</h3><p>Gmail threads linked to this PO. Opening an unread message here also marks it Read in Gmail.</p></div>
+        <button type="button" class="secondary" id="emailCustomerBtn">Email Customer</button>
+      </div>
       <div id="orderEmails"><p class="muted">Loading email conversations...</p></div>
     </section>
 
@@ -382,8 +388,18 @@ async function openOrder(id) {
       showVectorSendPanel(detail);
       return;
     }
+    if (btn.dataset.action === 'PREPARE_ACKNOWLEDGMENT') {
+      showCustomerEmailPanel(detail, 'ACKNOWLEDGMENT');
+      return;
+    }
+    if (btn.dataset.action === 'PREPARE_PROOF') {
+      showCustomerEmailPanel(detail, 'PROOF');
+      return;
+    }
     runAction(btn.dataset.action);
   }));
+  const emailCustomerBtn = detail.querySelector('#emailCustomerBtn');
+  if (emailCustomerBtn) emailCustomerBtn.addEventListener('click', () => showCustomerEmailPanel(detail, 'GENERAL'));
   detail.querySelector('#uploadAttachmentBtn').addEventListener('click', async () => {
     const input = detail.querySelector('#orderAttachmentInput');
     const files = Array.from(input.files || []);
@@ -421,6 +437,7 @@ function showEditOrderForm(detail) {
     <div class="form-grid">
       <label>Company Name<input id="editCompanyName" value="${escapeHtml(selectedOrder.company_name)}" /></label>
       <label>PO Number<input id="editPoNumber" value="${escapeHtml(selectedOrder.po_number)}" /></label>
+      <label>Customer Email<input id="editCustomerEmail" type="email" value="${escapeHtml(selectedOrder.customer_email || '')}" placeholder="customer@example.com" /></label>
     </div>
     <p class="error" id="editOrderError"></p>
     <div class="actions">
@@ -434,6 +451,7 @@ function showEditOrderForm(detail) {
   form.querySelector('#saveEditOrder').addEventListener('click', async () => {
     const companyName = form.querySelector('#editCompanyName').value.trim();
     const poNumber = form.querySelector('#editPoNumber').value.trim();
+    const customerEmail = form.querySelector('#editCustomerEmail').value.trim();
     const errorEl = form.querySelector('#editOrderError');
     const saveBtn = form.querySelector('#saveEditOrder');
 
@@ -449,7 +467,7 @@ function showEditOrderForm(detail) {
     const res = await fetch('/api/orders', {
       method:'PATCH',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({ orderId:selectedOrder.id, companyName, poNumber, actor:'Egnali' })
+      body:JSON.stringify({ orderId:selectedOrder.id, companyName, poNumber, customerEmail, actor:'Egnali' })
     });
     const data = await res.json().catch(() => ({}));
 
@@ -490,13 +508,21 @@ function showVectorSendPanel(detail) {
           <input id="vectorSendFile" type="file" accept=".pdf,.eps,.ai,.rio,application/pdf,application/postscript" />
         </div>
       </label>
-      <label class="notes">Instructions to Vector
-        <textarea id="vectorInstructions" rows="4" placeholder="Add the instructions Vector needs for this order."></textarea>
+      <div class="template-note"><strong>To:</strong> orders@vectorart.co</div>
+      <label class="notes">Subject
+        <input id="vectorSubject" value="PO ${escapeHtml(selectedOrder.po_number)} - ${escapeHtml(selectedOrder.company_name)} - Vector Artwork Request" />
       </label>
-      <div class="template-note">
-        <strong>Recipient:</strong> orders@vectorart.co<br>
-        <strong>Subject:</strong> PO [number] - [company] - Vector Artwork Request
-      </div>
+      <label class="notes">Email Message
+        <textarea id="vectorBody" rows="7">Hello Vector,
+
+Please process the attached artwork for Ribbon King PO ${escapeHtml(selectedOrder.po_number)}.
+Customer: ${escapeHtml(selectedOrder.company_name)}
+
+Instructions:
+
+Thank you,
+Ribbon King</textarea>
+      </label>
       <p class="error" id="vectorSendError"></p>
       <div class="actions">
         <button type="button" class="secondary" id="cancelVectorSend">Cancel</button>
@@ -511,7 +537,8 @@ function showVectorSendPanel(detail) {
     const file = fileInput?.files?.[0];
     const errorEl = holder.querySelector('#vectorSendError');
     const button = holder.querySelector('#confirmVectorSend');
-    const instructions = holder.querySelector('#vectorInstructions')?.value?.trim() || '';
+    const subject = holder.querySelector('#vectorSubject')?.value?.trim() || '';
+    const body = holder.querySelector('#vectorBody')?.value?.trim() || '';
 
     if (!file) {
       errorEl.textContent = 'Attach the logo or artwork before sending to Vector.';
@@ -535,7 +562,8 @@ function showVectorSendPanel(detail) {
       const form = new FormData();
       form.append('orderId', String(selectedOrder.id));
       form.append('actor', selectedOrder.owner || 'Logas');
-      form.append('instructions', instructions);
+      form.append('subject', subject);
+      form.append('body', body);
       form.append('file', file, file.name);
 
       const res = await fetch('/api/gmail/send-vector', { method:'POST', body:form });
@@ -548,6 +576,119 @@ function showVectorSendPanel(detail) {
       errorEl.textContent = error.message || 'Could not send the order to Vector.';
       button.disabled = false;
       button.textContent = 'Upload & Send to Vector';
+    }
+  });
+}
+
+
+function showCustomerEmailPanel(detail, kind='GENERAL') {
+  const holder = detail.querySelector('#customerEmailPanel');
+  if (!holder) return;
+
+  const customerEmail = selectedOrder?.customer_email || '';
+  if (!customerEmail) {
+    holder.innerHTML = '<section class="email-compose-card"><p class="error">Add the customer email address first using Edit Company / PO / Email.</p></section>';
+    return;
+  }
+
+  const defaults = {
+    ACKNOWLEDGMENT: {
+      title: 'Send Acknowledgment',
+      subject: `PO ${selectedOrder.po_number} - ${selectedOrder.company_name}`,
+      body: `Hello,
+
+We received your order for PO ${selectedOrder.po_number}.
+
+Thank you,
+Ribbon King`,
+      attachment: false
+    },
+    PROOF: {
+      title: 'Send Proof to Customer',
+      subject: `PO ${selectedOrder.po_number} - Proof for Approval`,
+      body: `Hello,
+
+Please review the attached proof for PO ${selectedOrder.po_number} and reply with your approval or requested changes.
+
+Thank you,
+Ribbon King`,
+      attachment: true
+    },
+    GENERAL: {
+      title: 'Email Customer',
+      subject: `PO ${selectedOrder.po_number} - Question`,
+      body: `Hello,
+
+`,
+      attachment: false
+    }
+  };
+
+  const config = defaults[kind] || defaults.GENERAL;
+  holder.innerHTML = `
+    <section class="email-compose-card">
+      <div class="section-head">
+        <div><h3>${escapeHtml(config.title)}</h3><p>Review and edit everything before sending.</p></div>
+      </div>
+      <div class="template-note"><strong>To:</strong> ${escapeHtml(customerEmail)}</div>
+      <label class="notes">Subject
+        <input id="customerEmailSubject" value="${escapeHtml(config.subject)}" />
+      </label>
+      <label class="notes">Email Message
+        <textarea id="customerEmailBody" rows="8">${escapeHtml(config.body)}</textarea>
+      </label>
+      <label class="upload-label">${config.attachment ? 'Proof Attachment (required)' : 'Attachment (optional)'}
+        <input id="customerEmailFile" type="file" accept=".pdf,.eps,.ai,.rio,application/pdf,application/postscript" />
+      </label>
+      <p class="error" id="customerEmailError"></p>
+      <div class="actions">
+        <button type="button" class="secondary" id="cancelCustomerEmail">Cancel</button>
+        <button type="button" class="primary" id="sendCustomerEmail">Send Email</button>
+      </div>
+    </section>
+  `;
+
+  holder.querySelector('#cancelCustomerEmail').addEventListener('click', () => { holder.innerHTML = ''; });
+  holder.querySelector('#sendCustomerEmail').addEventListener('click', async () => {
+    const subject = holder.querySelector('#customerEmailSubject')?.value?.trim() || '';
+    const body = holder.querySelector('#customerEmailBody')?.value?.trim() || '';
+    const file = holder.querySelector('#customerEmailFile')?.files?.[0];
+    const errorEl = holder.querySelector('#customerEmailError');
+    const button = holder.querySelector('#sendCustomerEmail');
+
+    if (!subject) { errorEl.textContent = 'Subject is required.'; return; }
+    if (!body) { errorEl.textContent = 'Email message is required.'; return; }
+    if (config.attachment && !file) { errorEl.textContent = 'Attach the proof before sending.'; return; }
+    if (file) {
+      const validation = validateFiles([file]);
+      if (validation) { errorEl.textContent = validation; return; }
+    }
+
+    button.disabled = true;
+    button.textContent = 'Sending...';
+    errorEl.textContent = '';
+
+    try {
+      const form = new FormData();
+      form.append('orderId', String(selectedOrder.id));
+      form.append('actor', selectedOrder.owner || 'Egnali');
+      form.append('kind', kind);
+      form.append('subject', subject);
+      form.append('body', body);
+      if (file) form.append('file', file, file.name);
+
+      const res = await fetch('/api/gmail/send-customer', { method:'POST', body:form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send customer email.');
+
+      const orderId = selectedOrder.id;
+      document.querySelector('#orderDialog').close();
+      await loadOrders();
+      await openOrder(orderId);
+    } catch (error) {
+      errorEl.textContent = error.message || 'Could not send customer email.';
+      button.disabled = false;
+      button.textContent = 'Send Email';
     }
   });
 }
@@ -570,7 +711,7 @@ function actionButtons(order) {
         ['VECTOR_RECEIVED','Vector Work Received']
       ],
       VECTOR_REVIEW_REQUIRED: [
-        ['PROOF_SENT','Send Proof to Customer'],
+        ['PREPARE_PROOF','Send Proof to Customer'],
         ['REVISION_SENT_VECTOR','Send Correction to Vector']
       ],
       WAITING_CUSTOMER_RESPONSE: [
@@ -593,11 +734,11 @@ function actionButtons(order) {
   }
 
   const map = {
-    PO_REVIEW_REQUIRED: [['ASSIGN_TO_LOGAS','PO Complete → Send to Logas'],['WAITING_CUSTOMER_INFO','Missing Info → Send to Logas with Notes']],
+    PO_REVIEW_REQUIRED: [['PREPARE_ACKNOWLEDGMENT','Send Acknowledgment'],['ASSIGN_TO_LOGAS','PO Complete → Send to Logas'],['WAITING_CUSTOMER_INFO','Missing Info → Send to Logas with Notes']],
     READY_FOR_VECTOR: [['PREPARE_VECTOR_SEND','Send to Vector'],['WAITING_CUSTOMER_INFO','Waiting for Customer Information']],
     WAITING_CUSTOMER_INFO: [['FOLLOW_UP_SENT','Follow-Up Sent'],['PREPARE_VECTOR_SEND','Information Received → Send to Vector']],
     WAITING_VECTOR: [['FOLLOW_UP_SENT','Follow-Up Vector'],['VECTOR_RECEIVED','Vector Artwork Received']],
-    VECTOR_REVIEW_REQUIRED: [['PROOF_SENT','Proof Sent to Customer'],['REVISION_SENT_VECTOR','Send Correction to Vector']],
+    VECTOR_REVIEW_REQUIRED: [['PREPARE_PROOF','Send Proof to Customer'],['REVISION_SENT_VECTOR','Send Correction to Vector']],
     WAITING_CUSTOMER_RESPONSE: [
       ['CUSTOMER_CHANGES','Customer Requested Changes'],
       ['APPROVED_NO_PLATE_READY','Approved + Ship Date + No Plate → Ready for Production'],
@@ -801,7 +942,7 @@ document.querySelector('#newOrderForm').addEventListener('submit', async e => {
   const res = await fetch('/api/orders', {
     method:'POST',
     headers:{'content-type':'application/json'},
-    body:JSON.stringify({ poNumber:fd.get('poNumber'), companyName:fd.get('companyName'), actor:'Egnali' })
+    body:JSON.stringify({ poNumber:fd.get('poNumber'), companyName:fd.get('companyName'), customerEmail:fd.get('customerEmail'), actor:'Egnali' })
   });
   const data = await res.json();
 
